@@ -42,9 +42,9 @@ func main() {
 
 	body := flag.String("d", "", "HTTP body")
 
-	interval := flag.Int("gi", 0, "Gurl request interval")
+	interval := flag.Int("interval", 0, "Gurl request interval")
 
-	repeat := flag.Int("gr", 0, "Gurl request repeat")
+	repeat := flag.Int("repeat", 0, "Gurl request repeat")
 
 	flag.Parse()
 
@@ -65,53 +65,34 @@ func main() {
 
 		g.repeat = *repeat
 
-		g.request()
-
 		if g.interval > 0 && g.repeat > 0 {
 			g.ticker()
+		} else {
+			g.request()
 		}
 	}
 }
 
 func (g *gurl) ticker() {
-	// quit := make(chan bool)
+	counter := 1
+	g.request()
 
-	// go func() {
-	// 	ticker := time.NewTicker(time.Second * time.Duration(g.interval))
-	// 	counter := 0
-
-	// 	for {
-	// 		select {
-	// 		case <-ticker.C:
-	// 			g.request()
-	// 			counter++
-	// 		case <-quit:
-	// 			ticker.Stop()
-	// 			return
-	// 		}
-	// 	}
-	// }()
-
-	// quit <- true
-
-	timeChan := make(chan bool)
-
-	go func() {
-		<-time.After(2 * time.Hour)
-		close(timeChan)
-	}()
-
-	t := time.NewTicker(time.Duration(g.interval) * time.Second)
+	ticker := time.NewTicker(time.Second * time.Duration(g.interval))
+	quit := make(chan struct{})
 
 	func() {
 		for {
 			select {
-			case <-t.C:
-			case <-timeChan:
-				t.Stop()
+			case <-ticker.C:
+			case <-quit:
+				ticker.Stop()
 				return
 			}
+			counter++
 			g.request()
+			if counter >= g.repeat {
+				close(quit)
+			}
 		}
 	}()
 }
@@ -133,11 +114,11 @@ func (g *gurl) request() {
 	}
 	defer resp.Body.Close()
 
-	log.Println("response Status:", resp.Status)
+	log.Println("Response Status:", resp.Status)
 
 	body, _ := ioutil.ReadAll(resp.Body)
 
-	log.Println("response Body:", string(body))
+	log.Println("Response Body:", string(body))
 }
 
-// curl -H "Content-Type: application/json" -X POST -d '{"email" : "test@test.com", "password": "123"}' -H "Origin: http://example.com" --verbose http://localhost:8080/user/register
+// ./gurl -U="http://requestb.in/1bkrics1" -X="GET" -d="{'hello':'hello'}" -H="Test: 123" -interval=2 -repeat=2
