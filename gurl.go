@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -29,6 +30,7 @@ type gurl struct {
 	body     []byte
 	interval int
 	repeat   int
+	file     *os.File
 }
 
 func main() {
@@ -45,6 +47,8 @@ func main() {
 	interval := flag.Int("interval", 0, "Gurl request interval")
 
 	repeat := flag.Int("repeat", 0, "Gurl request repeat")
+
+	file := flag.String("file", "", "Log file")
 
 	flag.Parse()
 
@@ -64,6 +68,16 @@ func main() {
 		g.interval = *interval
 
 		g.repeat = *repeat
+
+		if *file != "" {
+			logFile, err := os.OpenFile(*file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+
+			if err != nil {
+				panic(fmt.Sprintf("Error opening log file: %v", err))
+			}
+
+			g.file = logFile
+		}
 
 		if g.interval > 0 && g.repeat > 0 {
 			g.ticker()
@@ -98,8 +112,6 @@ func (g *gurl) ticker() {
 }
 
 func (g *gurl) request() {
-	log.Println("Request URL: ", g.url)
-
 	req, err := http.NewRequest(g.method, g.url, bytes.NewBuffer(g.body))
 
 	for i := 0; i < len(g.headers); i++ {
@@ -114,11 +126,13 @@ func (g *gurl) request() {
 	}
 	defer resp.Body.Close()
 
-	log.Println("Response Status:", resp.Status)
-
 	body, _ := ioutil.ReadAll(resp.Body)
 
-	log.Println("Response Body:", string(body))
+	if g.file != nil {
+		log.SetOutput(g.file)
+	}
+
+	log.Printf("Gurl Request: \n\t Url: %v \n\t Status: %v \n\t Body: %v \n\n", g.url, resp.Status, string(body))
 }
 
-// ./gurl -U="http://requestb.in/1bkrics1" -X="GET" -d="{'hello':'hello'}" -H="Test: 123" -interval=2 -repeat=2
+// ./gurl -U="http://requestb.in/1ik6l6k1" -X="GET" -d="{'hello':'hello'}" -H="Test: 123" -interval=2 -repeat=2 -file="log.txt"
