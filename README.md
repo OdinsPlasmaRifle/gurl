@@ -13,4 +13,4 @@ Go Lang cURL-like tool for making http requests.
 - Improve logging format (ensure all http details are logged, add `-verbose` for extra details).
 - Allow log destination/filename to be specified.
 - Add tests.
-- Add concurrency model, multiple gurl taks at once.
+- Add concurrency model, multiple gurl tasks at once.
