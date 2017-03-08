@@ -30,6 +30,7 @@ type gurl struct {
 	body     []byte
 	interval int
 	repeat   int
+	batch    int
 	file     *os.File
 }
 
@@ -46,7 +47,9 @@ func main() {
 
 	interval := flag.Int("interval", 0, "Gurl request interval")
 
-	repeat := flag.Int("repeat", 0, "Gurl request repeat")
+	repeat := flag.Int("repeat", 1, "Gurl request repeat")
+
+	batch := flag.Int("batch", 1, "Gurl request batch")
 
 	file := flag.String("file", "", "Log file")
 
@@ -69,6 +72,8 @@ func main() {
 
 		g.repeat = *repeat
 
+		g.batch = *batch
+
 		if *file != "" {
 			logFile, err := os.OpenFile(*file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 
@@ -79,19 +84,19 @@ func main() {
 			g.file = logFile
 		}
 
-		if g.interval > 0 && g.repeat > 0 {
-			g.ticker()
+		if g.interval > 0 {
+			g.requestTicker()
 		} else {
-			g.request()
+			g.requestIterator()
 		}
 	}
 }
 
-func (g *gurl) ticker() {
+func (g *gurl) requestTicker() {
 	counter := 1
-	g.request()
+	g.requestIterator()
 
-	ticker := time.NewTicker(time.Second * time.Duration(g.interval))
+	ticker := time.NewTicker(time.Duration(g.interval) * time.Second)
 	quit := make(chan struct{})
 
 	func() {
@@ -103,7 +108,7 @@ func (g *gurl) ticker() {
 				return
 			}
 			counter++
-			g.request()
+			g.requestIterator()
 			if counter >= g.repeat {
 				close(quit)
 			}
@@ -111,7 +116,22 @@ func (g *gurl) ticker() {
 	}()
 }
 
-func (g *gurl) request() {
+func (g *gurl) requestIterator() {
+	ch := make(chan string)
+	for i := 0; i < g.batch; i++ {
+		go g.request(ch)
+	}
+
+	if g.file != nil {
+		log.SetOutput(g.file)
+	}
+
+	for i := 0; i < g.batch; i++ {
+		log.Println(<-ch)
+	}
+}
+
+func (g *gurl) request(ch chan<- string) {
 	req, err := http.NewRequest(g.method, g.url, bytes.NewBuffer(g.body))
 
 	for i := 0; i < len(g.headers); i++ {
@@ -128,11 +148,7 @@ func (g *gurl) request() {
 
 	body, _ := ioutil.ReadAll(resp.Body)
 
-	if g.file != nil {
-		log.SetOutput(g.file)
-	}
-
-	log.Printf("Gurl Request: \n\t Url: %v \n\t Status: %v \n\t Body: %v \n\n", g.url, resp.Status, string(body))
+	ch <- fmt.Sprintf("Gurl Request: \n\t Url: %v \n\t Status: %v \n\t Body: %v \n\n", g.url, resp.Status, string(body))
 }
 
 // ./gurl -U="http://requestb.in/1ik6l6k1" -X="GET" -d="{'hello':'hello'}" -H="Test: 123" -interval=2 -repeat=2 -file="log.txt"
