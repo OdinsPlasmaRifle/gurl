@@ -150,5 +150,3 @@ func (g *gurl) request(ch chan<- string) {
 
 	ch <- fmt.Sprintf("Gurl Request: \n\t Url: %v \n\t Status: %v \n\t Body: %v \n\n", g.url, resp.Status, string(body))
 }
-
-// ./gurl -U="http://requestb.in/1ik6l6k1" -X="GET" -d="{'hello':'hello'}" -H="Test: 123" -interval=2 -repeat=2 -file="log.txt"
