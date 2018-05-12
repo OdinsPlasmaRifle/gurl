@@ -11,3 +11,4 @@ Go Lang cURL-like tool for making http requests.
 - Add more cURL features.
 - Improve logging format (ensure all http details are logged, add `-verbose` for extra details).
 - Add tests.
+- Find out why gurl sometimes gets a fatal error.
